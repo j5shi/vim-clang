@@ -24,6 +24,10 @@ if !exists('g:clang_format_auto')
   let g:clang_format_auto = 0
 endif
 
+if !exists('g:clang_analyze')
+  let g:clang_analyze = 'static'
+endif
+
 if !exists('g:clang_c_options')
   let g:clang_c_options = ''
 endif
@@ -792,7 +796,10 @@ func! s:ClangCompleteInit(force)
   com! ClangCompleteInit call <SID>ClangCompleteInit(1)
 
   " Useful to check syntax only
-  com! ClangSyntaxCheck call <SID>ClangSyntaxCheck(b:clang_root, b:clang_options)
+  com! ClangSyntaxCheck call <SID>ClangAnalyze(b:clang_root, "-fsyntax-only ".b:clang_options)
+  
+  " Useful static analyzer
+  com! ClangAnalyze call <SID>ClangAnalyze(b:clang_root, "--analyze ".b:clang_options)
 
   " Useful to format source code
   com! ClangFormat call <SID>ClangFormat('%')
@@ -838,8 +845,13 @@ func! s:ClangCompleteInit(force)
   au BufEnter <buffer> call <SID>BufVarSet()
   au BufLeave <buffer> call <SID>BufVarRestore()
 
-  " auto check syntax when write buffer
-  au BufWritePost <buffer> ClangSyntaxCheck
+  if g:clang_analyze == 'syntax'
+    " auto check syntax when save buffer
+    au BufWritePost <buffer> ClangSyntaxCheck
+  elseif g:clang_analyze == 'static'
+    " auto run static analyzer when save buffer
+    au BufWritePost <buffer> ClangAnalyze
+  endif
 
   " auto format current file if is enabled
   if g:clang_format_auto
@@ -992,15 +1004,15 @@ func! s:ClangExecuteDoneTriggerCompletion()
   endif
 endf
 "}}}
-"{{{ s:ClangSyntaxCheck
-" Only do syntax check without completion, will open diags window when have
-" problem. Now this function will block...
-func! s:ClangSyntaxCheck(root, clang_options)
+"{{{ s:ClangAnalyze
+" @root Where to execute clang
+" @clang_options Additional options passed to clang
+func! s:ClangAnalyze(root, clang_options)
   let l:cwd = fnameescape(getcwd())
   exe 'lcd ' . a:root
   let l:src = join(getline(1, '$'), "\n")
-  let l:command = printf('%s -fsyntax-only %s -', g:clang_exec, a:clang_options)
-  call s:PDebug("ClangSyntaxCheck::command", l:command)
+  let l:command = printf('%s %s -', g:clang_exec, a:clang_options)
+  call s:PDebug("ClangAnalyze::command", l:command)
   let l:clang_output = system(l:command, l:src)
   call s:DiagnosticsWindowOpen(expand('%:p:.'), split(l:clang_output, '\n'))
   exe 'lcd ' . l:cwd
