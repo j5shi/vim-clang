@@ -46,6 +46,10 @@ if !exists('g:clang_exec')
   let g:clang_exec = 'clang'
 endif
 
+if !exists('g:clang_syntax_check_on_save')
+  let g:clang_syntax_check_on_save = 1
+endif
+
 if !exists('g:clang_format_auto')
   let g:clang_format_auto = 0
 endif
@@ -853,7 +857,9 @@ func! s:ClangCompleteInit(force)
   au BufLeave <buffer> call <SID>BufVarRestore()
 
   " auto check syntax when write buffer
-  au BufWritePost <buffer> ClangSyntaxCheck
+  if g:clang_syntax_check_on_save
+    au BufWritePost <buffer> ClangSyntaxCheck
+  end
 
   " auto format current file if is enabled
   if g:clang_format_auto
